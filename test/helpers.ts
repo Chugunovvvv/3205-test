@@ -87,3 +87,8 @@ export async function postWebhook(app: FastifyInstance, order: unknown) {
 export async function dailyTotals(app: FastifyInstance, customerId: string, from: string, to: string) {
   return app.inject({ method: "GET", url: `/customers/${customerId}/daily-totals?from=${from}&to=${to}` });
 }
+
+/** Ожидаемая строка daily-totals: total = gross, discount = gross - net (в рублях). */
+export function day(date: string, gross: number, net = gross) {
+  return { date, total: gross, gross, discount: Math.round((gross - net) * 100) / 100, net };
+}

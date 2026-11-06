@@ -36,3 +36,22 @@ describe("POST /webhooks/order", () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe("POST /webhooks/order: параллельная доставка", () => {
+  it("устаревшая версия не затирает свежую, даже если пришла одновременно", async () => {
+    // Внешний API шлёт вебхуки параллельно (до 6 одновременно) с повторами и не по порядку
+    for (let round = 0; round < 10; round++) {
+      const o = apiOrder({ status: "paid", updatedAt: "2026-02-10T12:00:00Z" });
+      const newest = { ...o, status: "refunded", updatedAt: "2026-02-10T14:00:00Z" };
+      const middle = { ...o, status: "paid", updatedAt: "2026-02-10T13:00:00Z" };
+      const deliveries = [o, newest, middle, o, middle, newest, o, middle];
+      const results = await Promise.all(deliveries.map((d) => postWebhook(ctx.app, d)));
+      expect(results.every((r) => r.statusCode === 200)).toBe(true);
+
+      const { rows } = await ctx.db.query(`SELECT status, updated_at FROM orders WHERE id = $1`, [o.id]);
+      expect(rows[0]).toEqual({ status: "refunded", updated_at: new Date("2026-02-10T14:00:00Z") });
+      const created = results.filter((r) => r.json().result === "created");
+      expect(created).toHaveLength(1);
+    }
+  });
+});

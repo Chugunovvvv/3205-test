@@ -34,6 +34,22 @@ export function dateAtOffset(at: Date, offsetMinutes: number): string {
   return new Date(at.getTime() + offsetMinutes * 60_000).toISOString().slice(0, 10);
 }
 
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * Календарная дата (YYYY-MM-DD) момента `at` в таймзоне `timeZone`.
+ * Смещение берётся на сам момент `at`, поэтому переходы на летнее/зимнее время учитываются.
+ */
+export function localDate(at: Date, timeZone: string): string {
+  let fmt = dateFormatters.get(timeZone);
+  if (!fmt) {
+    // en-CA форматирует дату как YYYY-MM-DD
+    fmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+    dateFormatters.set(timeZone, fmt);
+  }
+  return fmt.format(at);
+}
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isCalendarDate(s: unknown): s is string {
